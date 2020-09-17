@@ -1,0 +1,527 @@
+package com.sample
+ 
+import com.sample.Diagnostico;
+import com.sample.Estados;
+import java.util.Scanner;
+
+
+/*------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+------------------------------------Diagnostico---------------------------------------
+--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------*/
+
+rule "Diagnostico Input"
+	when
+	then
+	System.out.println("Tem HCC?");
+	Scanner input1 = new Scanner(System.in);
+	boolean HCC = input1.nextBoolean();
+	
+	if(HCC == false){
+		System.out.println("--------------Diagnostico--------------");
+		System.out.println("Tamanho do nodulo?");
+		Scanner input2 = new Scanner(System.in);
+		double noduletam = input2.nextDouble();
+		while(noduletam <= 0){
+			System.out.println("Introduza um valor valido (>0)");
+			noduletam = input2.nextDouble();
+	}
+		insert(new Diagnostico(noduletam,HCC));
+	}
+	insert(new Diagnostico(HCC));
+end
+ 
+ 
+ 
+rule "Fazer US Input"
+    when
+        $d : Diagnostico($d.getNodulotam() < 1 && $d.getNodulotam() > 0, $d.isHcc() == false)
+    then
+    if($d.getFlag()==0){
+    	System.out.println("Fazer US ao fim de 4 meses");
+    
+    	System.out.println("Está estavel?");
+		Scanner input3 = new Scanner(System.in);
+		boolean Estavel = input3.nextBoolean();
+		$d.setEstavel(Estavel);
+	
+		$d.setFlag(1);
+		update($d);
+}
+end
+
+
+
+rule "Estavel. Repete US"
+when
+	$d : Diagnostico($d.getNodulotam() < 1 && $d.getNodulotam() > 0, $d.isHcc() == false,$d.isEstavel()==true)
+then
+    System.out.println("Repete US ao fim de 4 meses");
+    retract($d);
+end
+
+
+
+rule "Instavel. Investiga tamanho"
+when
+	$d : Diagnostico($d.getNodulotam() < 1 && $d.getNodulotam() > 0, $d.isHcc() == false,$d.isEstavel()==false)
+then
+    System.out.println("Investiga de acordo com o tamanho"); 
+    retract($d);
+end
+
+
+
+rule "Nodulo 1-2 cm input"
+    when
+        $d : Diagnostico($d.getNodulotam() >= 1 && $d.getNodulotam() <= 2, $d.isHcc() == false)
+    then
+    if($d.getFlag()== 0){
+		System.out.println("Fazer 4-phase CR ou dynamic contrast enhanced MRI"); 
+   	
+    	System.out.println("Quantos testes positivos?");
+		Scanner input4 = new Scanner(System.in);
+		int postech = input4.nextInt();
+		$d.setPostech(postech);
+		if($d.getPostech()== 1){
+			System.out.println("Equipamento de alta qualidade?");
+			Scanner input5 = new Scanner(System.in);
+			boolean highend = input5.nextBoolean();
+			$d.setHighend(highend);
+		}
+		$d.setFlag(1);
+		update($d);
+	}
+end
+
+
+
+rule "Biopsia (nodulo 1-2)"
+    when
+        $d : Diagnostico($d.getNodulotam() >= 1 && $d.getNodulotam() <= 2,$d.getPostech() == 0, $d.isHcc() == false)
+    then
+		System.out.println("Inconclusivo fazer biopsia"); 
+end
+
+
+
+rule "Tem HCC (highend positve techniques 1 nodulo 1-2)"
+    when
+        $d : Diagnostico($d.getNodulotam() >= 1 && $d.getNodulotam() <= 2,$d.getPostech() == 1, $d.isHcc() == false, $d.isHighend() == true)
+    then
+    $d.setHcc(true); 
+	System.out.println("Tem HCC");
+		
+	update($d);
+end
+
+
+
+rule "Biopsia (positive techniques 1 nodulo 1-2)"
+    when
+        $d : Diagnostico($d.getNodulotam() >= 1 && $d.getNodulotam() <= 2 ,$d.getPostech() == 1, $d.isHcc() == false, $d.isHighend() == false)
+    then
+		System.out.println("Inconclusivo fazer biopsia");
+end
+
+
+
+rule "Tem HCC (positive techniques 2 nodulo 1-2)"
+    when
+        $d : Diagnostico($d.getNodulotam() >= 1 && $d.getNodulotam() <= 2,$d.getPostech() == 2, $d.isHcc() == false)
+    then
+   		 $d.setHcc(true); 
+		System.out.println("Tem HCC");
+		
+		update($d);
+end
+
+
+
+rule "Nodulo >2 input"
+    when
+        $d : Diagnostico($d.getNodulotam() > 2, $d.isHcc() == false)
+    then
+	if($d.getFlag()== 0){
+		System.out.println("Fazer 4-phase CR ou dynamic contrast enhanced MRI"); 
+   	
+    	System.out.println("Quantos testes positivos?");
+		Scanner input4 = new Scanner(System.in);
+		int postech = input4.nextInt();
+		$d.setPostech(postech);
+
+		$d.setFlag(1);
+		update($d);
+		}
+end
+
+
+
+rule "Biopsia (nodulo > 2 positive techniques 0)"
+    when
+        $d : Diagnostico($d.getNodulotam() > 2, $d.isHcc() == false, $d.getPostech() == 0)
+    then
+		System.out.println("Inconclusivo fazer biopsia");
+end
+
+
+
+rule "Tem HCC (nodulo >2)"
+    when
+        $d : Diagnostico($d.getNodulotam() > 2, $d.isHcc() == false, $d.getPostech() == 1 || $d.getPostech() == 2)
+    then
+    	$d.setHcc(true);
+		System.out.println("Tem HCC");
+		 update($d);
+end
+
+
+
+rule "Diagnostico inconclusivo"
+	when
+		$d : Diagnostico ($d.getPostech() < 0 || $d.getPostech() >2 && $d.getPostech()!=100)
+	then
+		System.out.println("Diagnostico inconclusivo.");
+		retract($d);
+end
+
+			
+
+
+/*------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+----------------------------------------Tratamento------------------------------------
+--------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------*/
+
+rule "HCC input"
+salience 100
+	when
+		$d : Diagnostico($d.isHcc() == true)
+	then
+	System.out.println("-----------------Tratamento-------------");
+	System.out.println("Valor de PST?");
+	Scanner input4 = new Scanner(System.in);
+	int PST = input4.nextInt();
+	
+	System.out.println("Valor de Child Pugh?");
+	Scanner input5 = new Scanner(System.in);
+	String childp = input5.nextLine();
+	
+	insert(new Estados(childp,PST));
+	
+end
+
+
+
+rule "HCC not terminal stage input"
+ 	when
+ 		$d : Diagnostico ($d.isHcc() == true)
+ 		$e : Estados ($e.getCP() != 'C' , $e.getPST <=2)
+ 	then
+ 		if($e.getFlag()==0){
+		System.out.println("Portal invasion?");
+		Scanner input6 = new Scanner(System.in);
+		boolean PI = input6.nextBoolean();
+		$e.setPI(PI);
+		
+		System.out.println("Regional lymph node metastasis(N1)?");
+		Scanner input7 = new Scanner(System.in);
+		boolean N1 = input7.nextBoolean();
+		$e.setN1(N1);
+		
+		System.out.println("Distant metastasis(M1)?");
+		Scanner input8 = new Scanner(System.in);
+		boolean M1 = input8.nextBoolean();
+		$e.setM1(M1);
+		
+		$e.setFlag(1);
+		update($e);
+		}
+		
+end
+
+
+
+rule "Advanced Stage(C) child A Sorafenib"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados(	($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'A' )  
+		&& ($e.getPS() > 0 || $e.isPI()==true || $e.isN1()==true || $e.isM1()==true))
+then 
+	System.out.println("Advanced Stage(C)");
+	System.out.println("Sorafenib");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "Advanced Stage(C) child B Sorafenib"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados(	($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'B' )  
+		&& ($e.getPS() > 0 || $e.isPI()==true || $e.isN1()==true || $e.isM1()==true))
+then 
+	System.out.println("Advanced Stage(C)");
+	System.out.println("Sorafenib");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "Nodulos Stage 0 input"
+when
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados($e.getPST() == 0 , $e.getCP() == 'A')
+then
+if($e.getFlag()==1){
+
+		System.out.println("Numero de nodulos?");
+		Scanner input9 = new Scanner(System.in);
+		int nrnod = input9.nextInt();
+		$e.setnrNodule(nrnod);
+		
+		System.out.println("Tamanho dos nodulos?");
+		Scanner input10 = new Scanner(System.in);
+		double nodtam = input10.nextDouble();
+		$e.setNoduleTam(nodtam);	
+		
+	$e.setFlag(2);
+	update($e);
+	}
+end
+
+
+
+rule "Very Early stage input"
+when
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados($e.getPST() == 0 , $e.getCP() == 'A', $e.getnrNodule() == 1 
+	, $e.getNoduleTam() < 2 , $e.getNoduleTam() > 0 )
+then
+	if($e.getFlag()==2){
+	System.out.println("Very Early Stage(0)");
+	
+	System.out.println("Portal Pressure normal?");
+	Scanner input11 = new Scanner(System.in);
+	boolean pp = input11.nextBoolean();
+	$e.setPP(pp);
+	
+	System.out.println("Bilirubina normal?");
+	Scanner input12 = new Scanner(System.in);
+	boolean bili = input12.nextBoolean();
+	$e.setBilirubina(bili);
+	
+		if($e.isPP() == false || $e.isBilirubina() == false){	
+			System.out.println("Doenças Associadas?");
+			Scanner input13 = new Scanner(System.in);
+			boolean AD = input13.nextBoolean();
+			$e.setAD(AD);
+		}
+	$e.setFlag(3);
+	update($e);
+	}
+end
+
+
+
+rule "Resection"
+when 
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados(($e.getPST() == 0 && $e.getCP() == 'A'&& $e.getnrNodule() == 1 && $e.getNoduleTam() < 2 && $e.getNoduleTam() > 0) 
+		&& ($e.isPP() == true && $e.isBilirubina() == true) )
+then
+	System.out.println("Resection!");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "RF/PEI single very early(0)"
+when 
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados(($e.getPST() == 0 && $e.getCP() == 'A'&& $e.getnrNodule() == 1 && $e.getNoduleTam() < 2 && $e.getNoduleTam() > 0)
+		 && ($e.isPP() == false || $e.isBilirubina() == false) && $e.isAD() == true )
+then
+	System.out.println("Radio Frequency ou Percutaneous ethanol injection");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "Liver transplantation(CLT/LDLT) single very early(0)"
+when 
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados(($e.getPST() == 0 && $e.getCP() == 'A'&& $e.getnrNodule() == 1 && $e.getNoduleTam() < 2 && $e.getNoduleTam() > 0)
+		 && ($e.isPP() == false || $e.isBilirubina() == false) && $e.isAD() == false )
+then
+	System.out.println("Transplante de Figado(Living Doner Liver Transplation / Cadaveric Liver Transplation)");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "Early stage variante very early(0) input"
+when
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados($e.getPST() == 0 , $e.getCP() == 'A', $e.getnrNodule() == 3 && $e.getNoduleTam() <= 3)
+then
+	if($e.getFlag()==2){
+		System.out.println("Doenças Associadas?");
+		Scanner input14 = new Scanner(System.in);
+		boolean AD = input14.nextBoolean();
+		$e.setAD(AD);
+		
+		$e.setFlag(3);
+		update($e);
+	}
+end
+
+
+
+rule "RF/PEI 3 nodule very early(0)"
+when
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados(($e.getPST() == 0 && $e.getCP() == 'A'&& $e.getnrNodule() == 3 && $e.getNoduleTam() <= 3) && $e.isAD() == true)
+then
+	System.out.println("Radio Frequency ou Percutaneous ethanol injection");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "Liver transplantation(CLT/LDLT) 3 nodule very early(0)"
+when
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados(($e.getPST() == 0 && $e.getCP() == 'A'&& $e.getnrNodule() == 3 && $e.getNoduleTam() <= 3) && $e.isAD() == false)
+then
+	System.out.println("Transplante de Figado(Living Doner Liver Transplation / Cadaveric Liver Transplation)");
+	retract($e);
+	retract($d);
+end
+
+
+
+rule "Stage A-C input"
+when
+	$d: Diagnostico($d.isHcc() == true)
+	$e: Estados(($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'B') || ($e.getPST() > 0 && $e.getPST() <= 2 && $e.getCP() == 'A'))
+then
+	if($e.getFlag()==1){
+		System.out.println("Numero de Nodulos?");
+		Scanner input15 = new Scanner(System.in);
+		int nrnodule = input15.nextInt();
+		$e.setnrNodule(nrnodule);
+		
+		if($e.getnrNodule()<= 3){
+		
+			System.out.println("Tamanho dos nodulos?");
+			Scanner input16 = new Scanner(System.in);
+			double noduletam = input16.nextDouble();
+			$e.setNoduleTam(noduletam);
+		
+		}
+		
+		System.out.println("Propensity score?");
+		Scanner input17 = new Scanner(System.in);
+		int ps = input17.nextInt();
+		$e.setPS(ps);
+		$e.setFlag(2);
+		update($e);
+	}
+end
+
+
+
+rule "Early stage(A) input"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados((($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'A') || ($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'B')) 
+		&& (($e.getNoduleTam() <= 3 && $e.getnrNodule()==1) || ($e.getNoduleTam()<=3 && $e.getnrNodule()==3 && $e.getPS() == 0)))
+then
+	if($e.getFlag()==2){
+		System.out.println("Early Stage(A)");
+		System.out.println("Doenças associadas?");
+		Scanner input21 = new Scanner(System.in);
+		boolean AD = input21.nextBoolean();
+		$e.setAD(AD);
+		$e.setFlag(3);
+		update($e);
+	}
+end
+
+
+
+rule "RF/PEI Early stage(A)"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados(((($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'A') || ($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'B')) 
+		&& (($e.getNoduleTam() <= 3 && $e.getnrNodule()==1) || ($e.getNoduleTam()<=3 && $e.getnrNodule()==3 && $e.getPS() == 0))) && $e.isAD()==true)
+then
+	System.out.println("Radio Frequency ou Percutaneous ethanol injection");
+	retract($d);
+	retract($e);
+end
+
+
+
+rule "Liver transplantation(CLT/LDLT) Early stage(A)"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados(((($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'A') || ($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'B')) 
+		&& (($e.getNoduleTam() <= 3 && $e.getnrNodule()==1) || ($e.getNoduleTam()<=3 && $e.getnrNodule()==3 && $e.getPS() == 0))) && $e.isAD()==false)
+then
+	System.out.println("Transplante de Figado(Living Doner Liver Transplation / Cadaveric Liver Transplation)");
+	retract($d);
+	retract($e);
+end
+
+
+
+rule "Intermediate stage(B) TACE"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados( (($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'A' &&  $e.getPS() == 0) || 
+		($e.getPST() >= 0 && $e.getPST() <= 2 && $e.getCP() == 'B' &&  $e.getPS() == 0)) && ($e.getnrNodule()>3 || $e.getNoduleTam()>3) )
+then
+	System.out.println("Intermediate stage(B)");
+	System.out.println("Transarterial Chemoembolization");
+	retract($d);
+	retract($e);
+end
+
+
+
+rule "Terminal Stage(D) Best supportive care"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados($e.getPST() > 2 || $e.getCP() == 'C')
+then
+	System.out.println("Terminal Stage(D)");
+	System.out.println("Best supportive care");
+	retract($d);
+	retract($e);
+end
+
+
+
+rule "Tratamento Inconclusivo"
+when
+	$d : Diagnostico($d.isHcc() == true)
+	$e : Estados (($e.getPS() < 0 || $e.getPST() < 0 || $e.getnrNodule() == 2 || $e.getnrNodule() <= 0 || $e.getNoduleTam()<= 0) && $e.getCP()!='C')
+then
+	System.out.println("Tratamento Inconclusivo.");
+	retract($d);
+	retract($e);
+end
